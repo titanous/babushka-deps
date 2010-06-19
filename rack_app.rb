@@ -2,7 +2,6 @@ dep 'rack app' do
   requires 'postgres passworded access', 'existing postgres db', 'webapp', 'git deploy repo', 'git deploy hooks'
   setup {
     define_var :app_path, :default => "/home/#{var(:username)}/sites/#{var(:domain)}"
-    define_var :deploy_branch, :default => 'master'
     set :vhost_type, 'passenger'
   }
 end
@@ -10,16 +9,20 @@ end
 dep 'git deploy repo' do
   requires 'git'
 
+  setup {
+    define_var :deploy_branch, :default => 'master'
+  }
+
   met? {
     git_repo? var(:app_path)
   }
 
   meet {
-    in_dir var(:app_path), :create => true do
-      shell "git init"
-      shell "sed -i'' -e 's/master/#{var(:deploy_branch)}/' .git/HEAD" unless var(:deploy_branch) == 'master'
-      shell "git config --bool receive.denyNonFastForwards false"
-      shell "git config receive.denyCurrentBranch ignore"
+    sudo "mkdir -p #{var(:app_path)}", :as => var(:username)
+    in_dir var(:app_path) do
+      ["git init", "sed -i'' -e 's/master/#{var(:deploy_branch)}/' .git/HEAD",
+       "git config --bool receive.denyNonFastForwards false",
+       "git config receive.denyCurrentBranch ignore"].each { |cmd| sudo cmd, :as => var(:username) }
     end
   }
 end
@@ -32,8 +35,9 @@ dep 'git deploy hooks' do
 
   meet {
    %w[post-reset post-receive].each do |hook_name|
-      render_erb "rack_app/#{hook_name}", :to => "#{var(:app_path)}/.git/hooks/#{hook_name}"
-      shell "chmod +x #{var(:app_path)}/.git/hooks/#{hook_name}"
+      render_erb "rack_app/#{hook_name}", :to => "#{var(:app_path)}/.git/hooks/#{hook_name}", :sudo => true
+      sudo "chmod +x #{var(:app_path)}/.git/hooks/#{hook_name}"
     end
+    sudo "chown -R #{var(:username)} #{var(:app_path)}"
   }
 end
