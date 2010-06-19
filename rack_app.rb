@@ -1,5 +1,5 @@
 dep 'rack app' do
-  requires 'postgres passworded access', 'existing postgres db', 'webapp', 'git deploy repo', 'git deploy hooks'
+  requires 'postgres passworded access', 'postgres db', 'webapp', 'git deploy repo', 'git deploy hooks'
   setup {
     define_var :app_path, :default => "/home/#{var(:username)}/sites/#{var(:domain)}"
     set :vhost_type, 'passenger'
